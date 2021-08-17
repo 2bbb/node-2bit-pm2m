@@ -1,0 +1,28 @@
+{
+  "name": "pm2m",
+  "version": "0.0.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "ISHII 2bit",
+  "license": "MIT",
+  "keywords": [],
+  "main": "lib/index.js",
+  "scripts": {
+    "start": "node lib/index.js",
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "devDependencies": {
+    "@types/node": "^14.0.0",
+    "pm2": "^5.1.0",
+    "typescript": "^4.3.5"
+  },
+  "files": [
+    "lib"
+  ],
+  "description": "",
+  "dependencies": {
+    "strict-event-emitter-types": "^2.0.0"
+  }
+}
