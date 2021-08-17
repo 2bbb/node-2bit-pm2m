@@ -28,17 +28,22 @@ export type MonitorEventArguments = {
 };
 
 export interface PM2MonitorEvents {
-    exit: () => void;
     initial: (arg: Omit<MonitorEventArguments, 'previous'>) => void;
+
     changed_state: (arg: { changed_status: { from: ProcessStatus, to: ProcessStatus} } & MonitorEventArguments) => void;
     restarted: (arg: MonitorEventArguments) => void;
+
+    // concrete change state
     online: (arg: MonitorEventArguments) => void;
     launching: (arg: MonitorEventArguments) => void;
     stopping: (arg: MonitorEventArguments) => void;
     stopped: (arg: MonitorEventArguments) => void;
     errored: (arg: MonitorEventArguments) => void;
     "one-launch-status": (arg: MonitorEventArguments) => void;
+
+    // error about monitoring
     monitor_error: (arg: Error) => void;
+    exit: () => void;
 }
 
 const defaultMonitorInterval = 3000;
@@ -54,6 +59,15 @@ export declare interface PM2Monitor {
     once<U extends keyof PM2MonitorEvents>(event: U, listener: PM2MonitorEvents[U]): this;
 
     emit<U extends keyof PM2MonitorEvents>(event: U, ...args: Parameters<PM2MonitorEvents[U]>): boolean;
+}
+
+function process_description_summary(pi: pm2.ProcessDescription): ProcessDescriptionSummary {
+    return {
+        restart_time: pi.pm2_env!.restart_time!,
+        unstable_restarts: pi.pm2_env!.unstable_restarts!,
+        pid: pi.pid!,
+        process_description: pi,
+    };
 }
 
 export class PM2Monitor extends EventEmitter {
@@ -101,14 +115,6 @@ export class PM2Monitor extends EventEmitter {
                     for(const key in new_process_info) {
                         const previous_pi = process_info[key];
                         const current_pi = new_process_info[key];
-                        function process_description_summary(pi: pm2.ProcessDescription): ProcessDescriptionSummary {
-                            return {
-                                restart_time: pi.pm2_env!.restart_time!,
-                                unstable_restarts: pi.pm2_env!.unstable_restarts!,
-                                pid: pi.pid!,
-                                process_description: pi,
-                            };
-                        }
                         if(previous_pi) {
                             if(previous_pi.pm2_env && current_pi.pm2_env) {
                                 if(previous_pi.pm2_env.status
