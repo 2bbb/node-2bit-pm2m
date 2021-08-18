@@ -1,5 +1,5 @@
 {
-  "name": "pm2m",
+  "name": "@2bit/pm2m",
   "version": "0.0.1",
   "publishConfig": {
     "access": "public"
