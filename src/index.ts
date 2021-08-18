@@ -1,8 +1,6 @@
 import pm2 = require('pm2');
 import { EventEmitter } from 'events';
 
-const process_info: { [key: string]: pm2.ProcessDescription } = {};
-
 type ProcessStatus = NonNullable<NonNullable<pm2.ProcessDescription['pm2_env']>['status']>;
 
 type ExitOptions = {
@@ -54,13 +52,6 @@ export type PM2MonitorOptions = {
     ignorePM2Modules?: boolean
 };
 
-export declare interface PM2Monitor {
-    on<U extends keyof PM2MonitorEvents>(event: U, listener: PM2MonitorEvents[U]): this;
-    once<U extends keyof PM2MonitorEvents>(event: U, listener: PM2MonitorEvents[U]): this;
-
-    emit<U extends keyof PM2MonitorEvents>(event: U, ...args: Parameters<PM2MonitorEvents[U]>): boolean;
-}
-
 function process_description_summary(pi: pm2.ProcessDescription): ProcessDescriptionSummary {
     return {
         restart_time: pi.pm2_env!.restart_time!,
@@ -70,12 +61,24 @@ function process_description_summary(pi: pm2.ProcessDescription): ProcessDescrip
     };
 }
 
+export type ProcessInfoList = { [key: string]: pm2.ProcessDescription };
+
+export declare interface PM2Monitor {
+    on<U extends keyof PM2MonitorEvents>(event: U, listener: PM2MonitorEvents[U]): this;
+    once<U extends keyof PM2MonitorEvents>(event: U, listener: PM2MonitorEvents[U]): this;
+
+    emit<U extends keyof PM2MonitorEvents>(event: U, ...args: Parameters<PM2MonitorEvents[U]>): boolean;
+}
+
 export class PM2Monitor extends EventEmitter {
+    private process_info: ProcessInfoList = {};
+
     constructor(private options: PM2MonitorOptions = {}) {
         super();
         this.setupExitCallback();
         this.run();
     }
+
     private setupExitCallback() {
         const exitHandler = (options: Partial<ExitOptions>) => {
             if(options.exit) {
@@ -89,7 +92,8 @@ export class PM2Monitor extends EventEmitter {
         process.on('SIGUSR2', exitHandler.bind(null, { exit: true }));
         process.on('uncaughtException', exitHandler.bind(null, { uncaughtException: true, exit: true }));
     }
-    async run() {
+
+    private async run() {
         pm2.connect(async (err) =>{
             if(err) {
                 throw err;
@@ -97,12 +101,12 @@ export class PM2Monitor extends EventEmitter {
 
             while(true) {
                 try {
-                    const new_process_info = await new Promise<typeof process_info>((resolve, reject) => {
+                    const new_process_info = await new Promise<ProcessInfoList>((resolve, reject) => {
                         pm2.list((err, processes) => {
                             if(err) {
                                 return reject(err);
                             }
-                            const new_process_info: typeof process_info = {};
+                            const new_process_info: ProcessInfoList = {};
                             processes.forEach(process => {
                                 if(this.options.ignorePM2Modules && process.pm2_env && (process.pm2_env as any).axm_options?.isModule) return;
                                 if(this.options.appFilters == null || this.options.appFilters.find(name => name == process.name)) {
@@ -113,7 +117,7 @@ export class PM2Monitor extends EventEmitter {
                         });
                     });
                     for(const key in new_process_info) {
-                        const previous_pi = process_info[key];
+                        const previous_pi = this.process_info[key];
                         const current_pi = new_process_info[key];
                         if(previous_pi) {
                             if(previous_pi.pm2_env && current_pi.pm2_env) {
@@ -158,7 +162,7 @@ export class PM2Monitor extends EventEmitter {
                                 current: process_description_summary(current_pi),
                             });
                         }
-                        process_info[key] = current_pi;
+                        this.process_info[key] = current_pi;
                     }
                 } catch(err) {
                     console.error(err);
@@ -167,5 +171,9 @@ export class PM2Monitor extends EventEmitter {
                 await new Promise(r => setTimeout(r, this.options.monitoringInterval || defaultMonitorInterval));
             }
         });
+    }
+
+    get currentProcessInfo(): ProcessInfoList {
+        return this.process_info;
     }
 };
