@@ -46,12 +46,6 @@ export interface PM2MonitorEvents {
 
 const defaultMonitorInterval = 3000;
 
-export type PM2MonitorOptions = {
-    monitoringInterval?: number,
-    appFilters?: string[],
-    ignorePM2Modules?: boolean
-};
-
 function process_description_summary(pi: pm2.ProcessDescription): ProcessDescriptionSummary {
     return {
         restart_time: pi.pm2_env!.restart_time!,
@@ -62,6 +56,13 @@ function process_description_summary(pi: pm2.ProcessDescription): ProcessDescrip
 }
 
 export type ProcessInfoList = { [key: string]: pm2.ProcessDescription };
+
+export type PM2MonitorOptions = {
+    monitoringInterval?: number,
+    appFilters?: string[],
+    ignorePM2Modules?: boolean,
+    startManually?: boolean,
+};
 
 export declare interface PM2Monitor {
     on<U extends keyof PM2MonitorEvents>(event: U, listener: PM2MonitorEvents[U]): this;
@@ -76,7 +77,7 @@ export class PM2Monitor extends EventEmitter {
     constructor(private options: PM2MonitorOptions = {}) {
         super();
         this.setupExitCallback();
-        this.run();
+        if(!this.options.startManually) this.start();
     }
 
     private setupExitCallback() {
@@ -93,13 +94,19 @@ export class PM2Monitor extends EventEmitter {
         process.on('uncaughtException', exitHandler.bind(null, { uncaughtException: true, exit: true }));
     }
 
-    private async run() {
+    #is_running = false;
+    
+    async start() {
+        if(this.#is_running) {
+            return console.warn('already monitoring was started');
+        }
+        this.#is_running = true;
         pm2.connect(async (err) =>{
             if(err) {
                 throw err;
             }
 
-            while(true) {
+            while(this.#is_running) {
                 try {
                     const new_process_info = await new Promise<ProcessInfoList>((resolve, reject) => {
                         pm2.list((err, processes) => {
@@ -171,6 +178,13 @@ export class PM2Monitor extends EventEmitter {
                 await new Promise(r => setTimeout(r, this.options.monitoringInterval || defaultMonitorInterval));
             }
         });
+    }
+
+    stop() {
+        if(!this.#is_running) {
+            return console.warn('already monitoring was stopped');
+        }
+        this.#is_running = false;
     }
 
     get currentProcessInfo(): ProcessInfoList {
