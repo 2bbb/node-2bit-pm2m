@@ -6,7 +6,9 @@
   },
   "author": "ISHII 2bit",
   "license": "MIT",
-  "keywords": ["pm2 monitor"],
+  "keywords": [
+    "pm2 monitor"
+  ],
   "main": "lib/index.js",
   "scripts": {
     "start": "node lib/index.js",
@@ -22,7 +24,6 @@
   ],
   "description": "",
   "dependencies": {
-    "pm2": "^5.1.0",
-    "strict-event-emitter-types": "^2.0.0"
+    "pm2": "^5.1.0"
   }
 }
